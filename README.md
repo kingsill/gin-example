@@ -260,5 +260,176 @@ CREATE TABLE `blog_auth` (
 INSERT INTO `blog`.`blog_auth` (`id`, `username`, `password`) VALUES (null, 'test', 'test123456');
 ```
 
+### 编写项目配置包
 
+#### 拉取go-ini配置包
+	```
+ 	go get -u github.com/go-ini/ini
+	```
 
+#### 在conf目录下新建app.ini文件，写入内容：
+	[ini中文文档](https://ini.unknwon.io/docs/intro/getting_started)
+
+	```ini
+	#debug or release
+	RUN_MODE = debug
+
+	[app]
+	PAGE_SIZE = 10
+	JWT_SECRET = 23347$040412
+
+	[server]
+	HTTP_PORT = 8000
+	READ_TIMEOUT = 60
+	WRITE_TIMEOUT = 60
+
+	[database]
+	TYPE = mysql
+	USER = 数据库账号
+	PASSWORD = 数据库密码
+	#127.0.0.1:3306
+	HOST = 数据库IP:数据库端口号
+	NAME = blog
+	TABLE_PREFIX = blog_
+	```
+	可以看到`ini配置`文件中，`默认分区`中定义RUN_MODE为debug，`app分区`中定义两项，`server分区`定义HTTP_PORT等，`database分区`定义了数据库相关信息
+	>个人理解：ini配置文件将我们可能用到的配置信息同意展示在配置文件里，有助于后续管理及更新
+
+#### 建立调用配置的`setting`模块
+
+	go-gin-example的`pkg`目录下新建`setting目录`，新建 `setting.go` 文件，写入内容：
+	```go
+	package setting
+
+	import (
+	"log"
+	"time"
+
+	"github.com/go-ini/ini"
+	)
+
+	var (
+	Cfg *ini.File //加载配置文件读取
+
+	RunMode string
+
+	HTTPPort     int
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+
+	PageSize  int
+	JwtSecret string
+	)
+
+	func init() {
+	var err error
+	Cfg, err = ini.Load("conf/app.ini") //加载cong/app.ini文件，即我们自己创建的配置文件
+	if err != nil {                     //错误提示
+		log.Fatalf("Fail to parse 'conf/app.ini': %v", err)
+	}
+
+	LoadBase()
+	LoadServer()
+	LoadApp()
+	}
+
+	// LoadBase 加载运行模式
+	func LoadBase() {
+	//默认分区，使用""，key值为RUN_MODE，若配置中未指定，则默认为debug
+	RunMode = Cfg.Section("").Key("RUN_MODE").MustString("debug")
+	}
+
+	// LoadServer 加载服务器相关配置
+	func LoadServer() {
+		sec, err := Cfg.GetSection("server") //从配置文件检索server分区的内容，sec为获取的指定分区
+		if err != nil {                      //错误提示
+			log.Fatalf("Fail to get section 'server': %v", err)
+		}
+
+		//设置服务器配置，如果配置中未指定则使用默认值。
+		HTTPPort = sec.Key("HTTP_PORT").MustInt(8000)
+		ReadTimeout = time.Duration(sec.Key("READ_TIMEOUT").MustInt(60)) * time.Second
+		WriteTimeout = time.Duration(sec.Key("WRITE_TIMEOUT").MustInt(60)) * time.Second
+	}
+
+	// LoadApp 从配置文件中加载应用程序特定的设置
+	func LoadApp() {
+		sec, err := Cfg.GetSection("app") //从配置文件检索app分区的内容，sec为获取的指定分区
+		if err != nil {                   //错误提示
+			log.Fatalf("Fail to get section 'app': %v", err)
+		}
+		
+		// 设置应用程序配置，如果配置中未指定则使用默认值。
+		JwtSecret = sec.Key("JWT_SECRET").MustString("!@)*#)!@U#@*!@!)")
+		PageSize = sec.Key("PAGE_SIZE").MustInt(10)
+	}
+
+	```
+
+	当前目录结构
+	```
+	go-gin-example
+	├── conf
+	│   └── app.ini
+	├─middleware
+	├─models
+	├─pkg
+	│  └─setting
+	|       └──setting.go
+	├─routers
+	└─runtime
+	```
+
+#### 编写 API 错误码包
+建立错误码的`e`模块，在`go-gin-example`的`pkg`目录下新建`e目录`，新建`code.go`和`msg.go`文件，写入内容：
+
+>这里即创建golang中的枚举方法，便于后期处理和维护，[GO GORM 自定义数据类型-枚举](https://blog.csdn.net/kingsill/article/details/134867309?spm=1001.2014.3001.5502)这边文章具体提及其方法，可以参考
+
+1. code.go
+	在code.go中通过
+	```go
+	package e
+
+	const (
+		SUCCESS = 200
+		ERROR = 500
+		INVALID_PARAMS = 400
+
+		ERROR_EXIST_TAG = 10001
+		ERROR_NOT_EXIST_TAG = 10002
+		ERROR_NOT_EXIST_ARTICLE = 10003
+
+		ERROR_AUTH_CHECK_TOKEN_FAIL = 20001
+		ERROR_AUTH_CHECK_TOKEN_TIMEOUT = 20002
+		ERROR_AUTH_TOKEN = 20003
+		ERROR_AUTH = 20004
+	)
+	```
+
+2. msg.go
+
+	```go
+	package e
+
+	var MsgFlags = map[int]string {
+		SUCCESS : "ok",
+		ERROR : "fail",
+		INVALID_PARAMS : "请求参数错误",
+		ERROR_EXIST_TAG : "已存在该标签名称",
+		ERROR_NOT_EXIST_TAG : "该标签不存在",
+		ERROR_NOT_EXIST_ARTICLE : "该文章不存在",
+		ERROR_AUTH_CHECK_TOKEN_FAIL : "Token鉴权失败",
+		ERROR_AUTH_CHECK_TOKEN_TIMEOUT : "Token已超时",
+		ERROR_AUTH_TOKEN : "Token生成失败",
+		ERROR_AUTH : "Token错误",
+	}
+
+	func GetMsg(code int) string {
+		msg, ok := MsgFlags[code]
+		if ok {
+			return msg
+		}
+
+		return MsgFlags[ERROR]
+	}
+	```
