@@ -295,9 +295,9 @@ INSERT INTO `blog`.`blog_auth` (`id`, `username`, `password`) VALUES (null, 'tes
 	可以看到`ini配置`文件中，`默认分区`中定义RUN_MODE为debug，`app分区`中定义两项，`server分区`定义HTTP_PORT等，`database分区`定义了数据库相关信息
 	>个人理解：ini配置文件将我们可能用到的配置信息同意展示在配置文件里，有助于后续管理及更新
 
-#### 建立调用配置的`setting`模块
-
+#### 建立调用配置的`setting` 模块
 	go-gin-example的`pkg`目录下新建`setting目录`，新建 `setting.go` 文件，写入内容：
+
 	```go
 	package setting
 

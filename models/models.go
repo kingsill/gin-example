@@ -24,7 +24,7 @@ func init() {
 		dbType, dbName, user, password, host, tablePrefix string
 	)
 
-	sec, err := setting.Cfg.GetSection("database")
+	sec, err := setting.Cfg.GetSection("database") //cfj在setting模块中已经通过init函数进行初始化
 	if err != nil {
 		log.Fatal(2, "Fail to get section 'database': %v", err)
 	}
