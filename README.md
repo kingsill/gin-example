@@ -386,7 +386,7 @@ INSERT INTO `blog`.`blog_auth` (`id`, `username`, `password`) VALUES (null, 'tes
 >这里即创建golang中的枚举方法，便于后期处理和维护，[GO GORM 自定义数据类型-枚举](https://blog.csdn.net/kingsill/article/details/134867309?spm=1001.2014.3001.5502)这边文章具体提及其方法，可以参考
 
 1. code.go
-	在code.go中通过
+	在code.go中 定义 具有意义的**字符** 为 对应的**错误码**，具有编码作用
 	```go
 	package e
 
@@ -407,6 +407,7 @@ INSERT INTO `blog`.`blog_auth` (`id`, `username`, `password`) VALUES (null, 'tes
 	```
 
 2. msg.go
+	在`msg.go`中 通过建立 int对应string的**map表** 将 code.go 中的**字符常量** 对应为 **字符串**，之后 通过`GetMsg`函数 可以直接将 **错误码** **对应**到 想要传递的**错误信息**
 
 	```go
 	package e
@@ -433,3 +434,59 @@ INSERT INTO `blog`.`blog_auth` (`id`, `username`, `password`) VALUES (null, 'tes
 		return MsgFlags[ERROR]
 	}
 	```
+
+
+#### 编写工具包
+在`go-gin-example`的`pkg`目录下新建`util`目录，并拉取`com`的依赖包，如下：
+```
+$ go get -u github.com/unknwon/com
+```
+
+##### 编写分页页码的获取方法
+在`util`目录下新建`pagination.go`，写入内容：
+```go
+package util
+
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/unknwon/com"
+
+	"github.com/kingsill/gin-example/pkg/setting"
+)
+
+// GetPage page 1  0；page 2  10；page 3  20
+func GetPage(c *gin.Context) int {
+	result := 0                                 //默认查询结果为0，及第1页
+	page, _ := com.StrTo(c.Query("page")).Int() //查询url中包含的page信息并将其转化为int类型
+	if page > 0 {                               //如果获取的页数大于0
+		result = (page - 1) * setting.PageSize //返回(页数-1)×每页大小(在setting.go中已经配置过)
+	}
+
+	return result
+}
+
+```
+
+
+关于其中gin的查询参数部分可以参考这部分[gin 查询参数](https://blog.csdn.net/kingsill/article/details/133611318?spm=1001.2014.3001.5502#t18)
+
+
+#### 编写 models init
+拉取`gorm`的依赖包，拉取`mysql驱动`的依赖包，如下：
+```
+$ go get -u github.com/jinzhu/gorm
+$ go get -u github.com/go-sql-driver/mysql
+```
+
+有关gorm和mysql可以参看这两部分文章：
+[gorm](https://blog.csdn.net/kingsill/category_12535358.html?spm=1001.2014.3001.5482)			[mysql](https://blog.csdn.net/kingsill/category_12535359.html) 
+
+完成后，在`go-gin-example`的`models`目录下新建`models.go`，用于models的初始化使用
+
+```go
+
+```
+
+
+
+
