@@ -472,6 +472,7 @@ func GetPage(c *gin.Context) int {
 
 
 #### 编写 models init
+//配置部分数据库连接相关内容
 拉取`gorm`的依赖包，拉取`mysql驱动`的依赖包，如下：
 ```
 $ go get -u github.com/jinzhu/gorm
@@ -484,8 +485,306 @@ $ go get -u github.com/go-sql-driver/mysql
 完成后，在`go-gin-example`的`models`目录下新建`models.go`，用于models的初始化使用
 
 ```go
+package models
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/mysql"
+
+	"github.com/kingsill/gin-example/pkg/setting"
+)
+
+// 定义一个全局的数据库连接变量
+var db *gorm.DB
+
+type Model struct {
+	ID         int `gorm:"primary_key" json:"id"`
+	CreatedOn  int `json:"created_on"`
+	ModifiedOn int `json:"modified_on"`
+}
+
+// 将一下定义为init函数
+func init() {
+	var (
+		err                                               error
+		dbType, dbName, user, password, host, tablePrefix string
+	)
+
+	//加载配置文件中database分区的数据
+	sec, err := setting.Cfg.GetSection("database") //cfj在setting模块中已经通过init函数进行初始化
+	if err != nil {
+		log.Fatal(2, "Fail to get section 'database': %v", err)
+	}
+
+	//配置导入
+	dbType = sec.Key("TYPE").String()
+	dbName = sec.Key("NAME").String()
+	user = sec.Key("USER").String()
+	password = sec.Key("PASSWORD").String()
+	host = sec.Key("HOST").String()
+	tablePrefix = sec.Key("TABLE_PREFIX").String()
+
+	//使用gorm框架初始化数据库连接
+	db, err = gorm.Open(dbType, fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8&parseTime=True&loc=Local",
+		user,
+		password,
+		host,
+		dbName))
+	if err != nil {
+		log.Println(err)
+	}
+
+	//自定义默认表的表名，使用匿名函数，在原默认表名的前面加上配置文件中定义的前缀
+	gorm.DefaultTableNameHandler = func(db *gorm.DB, defaultTableName string) string {
+		return tablePrefix + defaultTableName
+	}
+
+	//gorm默认使用复数映射，当前设置后即进行严格匹配
+	db.SingularTable(true)
+	//log记录打开
+	db.LogMode(true)
+
+	//进行连接池设置
+	db.DB().SetMaxIdleConns(10)
+	db.DB().SetMaxOpenConns(100)
+}
+
+// CloseDB 与数据库断开连接函数
+func CloseDB() {
+	defer db.Close()
+}
 
 ```
+此时我依旧不太明白中间闭包的作用，还希望路过大神能够解惑
+
+### 编写项目启动、路由文件 Demo
+
+在go-gin-example下建立main.go作为启动文件（也就是main包），我们先写个**Demo**，帮助大家理解，写入文件内容：
+```go
+package main
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/kingsill/gin-example/pkg/setting"
+)
+
+// 这里的测试demo只使用到了pkg/setting包，即读取配置文件app. ini文件部分
+func main() {
+
+	//创建一个默认路由器router
+	router := gin.Default()
+
+	//创建一个对应的路由handler处理get请求，这里定义了测试的ip即x.x.x/test
+	router.GET("/test", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "test",
+		})
+	})
+
+	//创建一个http服务器，将前面的router绑定为这里的处理器
+	s := &http.Server{
+		Addr:           fmt.Sprintf(":%d", setting.HTTPPort),
+		Handler:        router,
+		ReadTimeout:    setting.ReadTimeout,
+		WriteTimeout:   setting.WriteTimeout,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	//启动服务器
+	s.ListenAndServe()
+}
+```
+
+执行go run main.go，查看命令行是否显示:
+```
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /test                     --> main.main.func1 (3 handlers)
+```
+
+在本机执行curl 127.0.0.1:8000/test,或者在浏览器中输入ip地址，检查是否返回{"message":"test"}。
+
+笔者的路由、handler等定义可能比较混乱，也希望大家指出错误
+### 知识点部分
+那么，我们来延伸一下 Demo 所涉及的知识点！
+
+**标准库**
+- fmt：实现了类似 C 语言 printf 和 scanf 的格式化 I/O。格式化动作（‘verb’）源自 C 语言但更简单
+net/http：提供了 HTTP 客户端和服务端的实现
+
+**Gin**
+- gin.Default()：返回 Gin 的type Engine struct{...}，里面包含RouterGroup，相当于创建一个路由Handlers，可以后期绑定各类的路由规则和函数、中间件等
+- router.GET(…){…}：创建不同的 HTTP 方法绑定到Handlers中，也支持 POST、PUT、DELETE、PATCH、OPTIONS、HEAD 等常用的 Restful 方法
+- gin.H{…}：就是一个map[string]interface{}
+- gin.Context：Context是gin中的上下文，它允许我们在中间件之间传递变量、管理流、验证 JSON 请求、响应 JSON 请求等，在gin中包含大量Context的方法，例如我们常用的DefaultQuery、Query、DefaultPostForm、PostForm等等
+
+**&http.Server 和 ListenAndServe？**
+
+1. http.Server：
+```go
+type Server struct {
+    Addr    string
+    Handler Handler
+    TLSConfig *tls.Config
+    ReadTimeout time.Duration
+    ReadHeaderTimeout time.Duration
+    WriteTimeout time.Duration
+    IdleTimeout time.Duration
+    MaxHeaderBytes int
+    ConnState func(net.Conn, ConnState)
+    ErrorLog *log.Logger
+}
+```
+- **Addr**：监听的 TCP 地址，格式为:8000
+- **Handler**：http 句柄，实质为ServeHTTP，用于处理程序响应 HTTP 请求
+- **TLSConfig**：安全传输层协议（TLS）的配置
+- **ReadTimeout**：允许读取的最大时间
+- **ReadHeaderTimeout**：允许读取请求头的最大时间
+- **WriteTimeout**：允许写入的最大时间
+- **IdleTimeout**：等待的最大时间
+- **MaxHeaderBytes**：请求头的最大字节数
+- **ConnState**：指定一个可选的回调函数，当客户端连接发生变化时调用
+- **ErrorLog**：指定一个可选的日志记录器，用于接收程序的意外行为和底层系统错误；如果未设置或为nil则默认以日志包的标准日志记录器完成（也就是在控制台输出）
+
+2. ListenAndServe：
+```go
+func (srv *Server) ListenAndServe() error {
+    addr := srv.Addr
+    if addr == "" {
+        addr = ":http"
+    }
+    ln, err := net.Listen("tcp", addr)
+    if err != nil {
+        return err
+    }
+    return srv.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)})
+}
+```
+开始监听服务，监听 TCP 网络地址，Addr 和调用应用程序处理连接上的请求。
+
+我们在源码中看到Addr是调用我们在&http.Server中设置的参数，因此我们在设置时要用&，我们要改变参数的值，因为我们ListenAndServe和其他一些方法需要用到&http.Server中的参数，他们是相互影响的。
+
+3. http.ListenAndServe和 连载一 的r.Run()有区别吗？
+我们看看`r.Run`的实现：
+```go
+func (engine *Engine) Run(addr ...string) (err error) {
+    defer func() { debugPrintError(err) }()
+
+    address := resolveAddress(addr)
+    debugPrint("Listening and serving HTTP on %s\n", address)
+    err = http.ListenAndServe(address, engine)
+    return
+}
+```
+通过分析源码，得知**本质上没有区别**，同时也得知了启动gin时的监听 debug 信息在这里输出。
+
+### 最后的小改进部分
+ Demo 的router.GET等路由规则可以不写在main包中吗？
+ 我们发现router.GET等路由规则，在 Demo 中被编写在了main包中，感觉很奇怪，我们去抽离这部分逻辑！
+
+在go-gin-example下routers目录新建router.go文件，写入内容：
+```go
+package routers
+
+import (
+    "github.com/gin-gonic/gin"
+
+    "github.com/EDDYCJY/go-gin-example/pkg/setting"
+)
+
+func InitRouter() *gin.Engine {
+
+	//创建新的router而不是默认。
+	r := gin.New()
+	
+	//定义router的配置
+    r.Use(gin.Logger())
+    r.Use(gin.Recovery())
+    gin.SetMode(setting.RunMode)
+
+	//将处理函数搬到这里
+    r.GET("/test", func(c *gin.Context) {
+        c.JSON(200, gin.H{
+            "message": "test",
+        })
+    })
+
+    return r
+}
+```
+
+**修改main.go文件内容**
+```go
+package main
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/EDDYCJY/go-gin-example/routers"
+	"github.com/EDDYCJY/go-gin-example/pkg/setting"
+)
+
+func main() {
+	router := routers.InitRouter()
+
+	s := &http.Server{
+		Addr:           fmt.Sprintf(":%d", setting.HTTPPort),
+		Handler:        router,
+		ReadTimeout:    setting.ReadTimeout,
+		WriteTimeout:   setting.WriteTimeout,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	s.ListenAndServe()
+}
+```
+
+**当前目录结构：**
+```
+go-gin-example/
+├── conf
+│   └── app.ini
+├── main.go
+├── middleware
+├── models
+│   └── models.go
+├── pkg
+│   ├── e
+│   │   ├── code.go
+│   │   └── msg.go
+│   ├── setting
+│   │   └── setting.go
+│   └── util
+│       └── pagination.go
+├── routers
+│   └── router.go
+├── runtime
+```
+
+
+## 编写tag的api
+目标：完成博客的标签类接口定义和编写
+
+### 定义接口
+本节正是编写标签的逻辑，我们想一想，一般接口为增删改查是基础的，那么我们定义一下接口吧！
+- 获取标签列表：GET("/tags”)
+- 新建标签：POST("/tags”)
+- 更新指定标签：PUT("/tags/:id”)
+- 删除指定标签：DELETE("/tags/:id”)
+
+### 编写路由空壳
 
 
 
