@@ -785,7 +785,33 @@ go-gin-example/
 - 删除指定标签：DELETE("/tags/:id”)
 
 ### 编写路由空壳
+开始编写路由文件逻辑，在routers下新建api目录，我们当前是第一个 API 大版本，因此在api下新建v1目录，再新建tag.go文件，写入内容：
+```go
+package v1
 
+import (
+    "github.com/gin-gonic/gin"
+)
+
+//获取多个文章标签
+func GetTags(c *gin.Context) {
+}
+
+//新增文章标签
+func AddTag(c *gin.Context) {
+}
+
+//修改文章标签
+func EditTag(c *gin.Context) {
+}
+
+//删除文章标签
+func DeleteTag(c *gin.Context) {
+}
+```
+
+### 注册路由
+我们打开routers下的router.go文件，修改文件内容为：
 
 
 
