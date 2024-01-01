@@ -292,6 +292,7 @@ INSERT INTO `blog`.`blog_auth` (`id`, `username`, `password`) VALUES (null, 'tes
 	NAME = blog
 	TABLE_PREFIX = blog_
 	```
+	**相关内容记得填写自己的配置进去**
 	可以看到`ini配置`文件中，`默认分区`中定义RUN_MODE为debug，`app分区`中定义两项，`server分区`定义HTTP_PORT等，`database分区`定义了数据库相关信息
 	>个人理解：ini配置文件将我们可能用到的配置信息同意展示在配置文件里，有助于后续管理及更新
 
@@ -812,6 +813,284 @@ func DeleteTag(c *gin.Context) {
 
 ### 注册路由
 我们打开routers下的router.go文件，修改文件内容为：
+```go
+package routers
 
+import (
+	"github.com/gin-gonic/gin"
+
+	"github.com/kingsill/gin-example/pkg/setting"
+	"github.com/kingsill/gin-example/routers/api/v1"
+)
+
+func InitRouter() *gin.Engine {
+	//注册一个新的router
+	r := gin.New()
+
+	//使用logger
+	r.Use(gin.Logger())
+
+	r.Use(gin.Recovery())
+
+	//将运行模式放到setting中设置的模式上
+	gin.SetMode(setting.RunMode)
+
+	//路由分组，统一管理，统一增加 前缀
+	apiv1 := r.Group("/api/v1")
+	{
+		//获取标签列表
+		apiv1.GET("/tags", v1.GetTags)
+		//新建标签
+		apiv1.POST("/tags", v1.AddTag)
+		//更新指定标签
+		apiv1.PUT("/tags/:id", v1.EditTag)
+		//删除指定标签
+		apiv1.DELETE("/tags/:id", v1.DeleteTag)
+	}
+
+	//将本次注册的router返回，方便使用
+	return r
+}
+
+
+```
+
+### 检查路由是否注册成功
+回到命令行，执行`go run main.go`，检查路由规则是否注册成功。
+
+```go
+$ go run main.go
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:   export GIN_MODE=release
+ - using code:  gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /api/v1/tags              --> gin-blog/routers/api/v1.GetTags (3 handlers)
+[GIN-debug] POST   /api/v1/tags              --> gin-blog/routers/api/v1.AddTag (3 handlers)
+[GIN-debug] PUT    /api/v1/tags/:id          --> gin-blog/routers/api/v1.EditTag (3 handlers)
+[GIN-debug] DELETE /api/v1/tags/:id          --> gin-blog/routers/api/v1.DeleteTag (3 handlers)
+```
+
+### 下载依赖包
+首先我们要拉取`validation`的依赖包，在后面的接口里会使用到表单验证
+```
+$ go get -u github.com/astaxie/beego/validation
+```
+
+### 编写标签列表的 models 逻辑
+创建`models`目录下的`tag.go`，写入文件内容：
+```go
+package models
+
+import (
+	"github.com/jinzhu/gorm"
+	"time"
+)
+
+// Tag 定义tag表的相关表头
+type Tag struct {
+	Model
+
+	Name       string `json:"name"`
+	CreatedBy  string `json:"created_by"`
+	ModifiedBy string `json:"modified_by"`
+	State      int    `json:"state"`
+}
+
+//以下两个函数都为命名返回，函数内部有相关定义
+
+// GetTags page-size,每页显示的tag数	pageNum，即为从第几条记录开始显示，从0开始计数
+func GetTags(pageNum int, pageSize int, maps interface{}) (tags []Tag) {
+
+	// where查询使用map条件
+	//db.Where(map[string]interface{}{"name": "jinzhu", "age": 20}).Find(&users)
+	// SELECT * FROM users WHERE name = "jinzhu" AND age = 20;
+
+	db.Where(maps).Offset(pageNum).Limit(pageSize).Find(&tags) //db在models.go中已经定义，同一个包可以直接调用
+	return
+}
+
+// GetTagTotal 查询tag总数
+func GetTagTotal(maps interface{}) (count int) {
+	db.Model(&Tag{}).Where(maps).Count(&count)
+
+	return
+}
+```
+1. 我们创建了一个Tag struct{}，用于Gorm的使用。并给予了附属属性json，这样子在c.JSON的时候就会自动转换格式，非常的便利
+
+2. 可能会有的初学者看到return，而后面没有跟着变量，会不理解；其实你可以看到在函数末端，我们已经显示声明了返回值，这个变量在函数体内也可以直接使用，因为他在一开始就被声明了
+
+3. 有人会疑惑db是哪里来的；因为在同个models包下，因此db *gorm.DB是可以直接使用的
+
+### 编写标签列表的路由逻辑
+打开`routers`目录下 `v1` 版本的`tag.go`，第一我们先编写获取标签列表的接口
+
+修改文件内容：
+
+```go
+package v1
+
+import (
+    "net/http"
+
+    "github.com/gin-gonic/gin"
+    //"github.com/astaxie/beego/validation"
+    "github.com/Unknwon/com"
+
+    "gin-blog/pkg/e"
+    "gin-blog/models"
+    "gin-blog/pkg/util"
+    "gin-blog/pkg/setting"
+)
+
+// GetTags 获取多个文章标签
+func GetTags(c *gin.Context) {
+	//查询参数方法，及url中？name=xxx
+	name := c.Query("name")
+
+	maps := make(map[string]interface{})
+	data := make(map[string]interface{})
+
+	if name != "" {
+		maps["name"] = name
+	}
+
+	var state int = -1
+	if arg := c.Query("state"); arg != "" {
+		state = com.StrTo(arg).MustInt()
+		maps["state"] = state
+	}
+
+	code := e.SUCCESS //使用之前约定的错误码
+
+	data["lists"] = models.GetTags(util.GetPage(c), setting.PageSize, maps)
+	data["total"] = models.GetTagTotal(maps)
+
+	//gin.h是一种简便的返回json的方式
+	c.JSON(http.StatusOK, gin.H{
+		"code": code,
+		"msg":  e.GetMsg(code),
+		"data": data,
+	})
+}
+
+//新增文章标签
+func AddTag(c *gin.Context) {
+}
+
+//修改文章标签
+func EditTag(c *gin.Context) {
+}
+
+//删除文章标签
+func DeleteTag(c *gin.Context) {
+}
+```
+
+1. c.Query可用于获取?name=test&state=1这类 URL 参数，而c.DefaultQuery则支持设置一个默认值
+2. code变量使用了e模块的错误编码，这正是先前规划好的错误码，方便排错和识别记录
+3. util.GetPage保证了各接口的page处理是一致的
+4. c *gin.Context是Gin很重要的组成部分，可以理解为上下文，它允许我们在中间件之间传递变量、管理流、验证请求的 JSON 和呈现 JSON 响应
+
+在本机执行`curl 127.0.0.1:8000/api/v1/tags`，正确的返回值为`{"code":200,"data":{"lists":[],"total":0},"msg":"ok"}`，若存在问题请结合` gin `结果进行拍错。
+
+在获取标签列表接口中，我们可以根据`name、state、page`来筛选查询条件，分页的步长可通过`app.ini`进行配置，以`lists、total`的组合返回达到分页效果。
+
+### 编写新增标签的 models 逻辑
+接下来我们编写新增标签的接口
+
+打开`models`目录下的`tag.go`，修改文件（增加 2 个方法）：
+```go
+...
+// ExistTagByName 根据name查询tag是否存在
+func ExistTagByName(name string) bool {
+	var tag Tag
+	//查询词条
+	db.Select("id").Where("name = ?", name).First(&tag)
+
+	if tag.ID > 0 {
+		return true
+	}
+
+	return false
+}
+
+// AddTag 创建新tag
+func AddTag(name string, state int, createdBy string) bool {
+	//在对应数据表中创建词条
+	db.Create(&Tag{
+		Name:      name,
+		State:     state,
+		CreatedBy: createdBy,
+	})
+
+	return true
+}
+
+...
+```
+
+### 编写新增标签的路由逻辑
+打开`routers`目录下的`tag.go`，修改文件（变动 `AddTag` 方法）：
+
+```go
+package v1
+
+import (
+    "log"
+    "net/http"
+
+    "github.com/gin-gonic/gin"
+    "github.com/astaxie/beego/validation"
+    "github.com/Unknwon/com"
+
+    "gin-blog/pkg/e"
+    "gin-blog/models"
+    "gin-blog/pkg/util"
+    "gin-blog/pkg/setting"
+)
+
+...
+
+// AddTag 新增文章标签
+func AddTag(c *gin.Context) {
+
+	//参数查询 url中name
+	name := c.Query("name")
+	//参数查询 state 这里设置默认为0
+	state := com.StrTo(c.DefaultQuery("state", "0")).MustInt()
+	//参数查询
+	createdBy := c.Query("created_by")
+
+	valid := validation.Validation{}
+	valid.Required(name, "name").Message("名称不能为空")
+	valid.MaxSize(name, 100, "name").Message("名称最长为100字符")
+	valid.Required(createdBy, "created_by").Message("创建人不能为空")
+	valid.MaxSize(createdBy, 100, "created_by").Message("创建人最长为100字符")
+	valid.Range(state, 0, 1, "state").Message("状态只允许0或1")
+
+	//运行到这里设置为 参数错误
+	code := e.INVALID_PARAMS
+
+	//将gin获得的数据与数据库作比较，进行验证
+	if !valid.HasErrors() {
+		if !models.ExistTagByName(name) {
+			code = e.SUCCESS
+			models.AddTag(name, state, createdBy)
+		} else {
+			code = e.ERROR_EXIST_TAG
+		}
+	}
+
+	//json相应
+	c.JSON(http.StatusOK, gin.H{
+		"code": code,
+		"msg":  e.GetMsg(code),
+		"data": make(map[string]string),
+	})
+}
+...
+```
+用`Postman`用 `POST `访问`http://127.0.0.1:8000/api/v1/tags?name=1&state=1&created_by=test`，查看`code`是否返回`200`及`blog_tag`表中是否有值，有值则正确。
 
 
