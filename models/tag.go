@@ -60,20 +60,25 @@ func AddTag(name string, state int, createdBy string) bool {
 	return true
 }
 
+// BeforeCreate 建立hook钩子函数，在创建之前插入时间值
 func (tag *Tag) BeforeCreate(scope *gorm.Scope) error {
+	//我们在定义的时候createon是int类型，因此我们这里使用unix方法将时间转变为时间戳
 	scope.SetColumn("CreatedOn", time.Now().Unix())
 
 	return nil
 }
 
+// BeforeUpdate 同为hook钩子函数，更新的时候加入修改时间值
 func (tag *Tag) BeforeUpdate(scope *gorm.Scope) error {
 	scope.SetColumn("ModifiedOn", time.Now().Unix())
 
 	return nil
 }
 
+// ExistTagByID 根据id查询表中tag是否存在
 func ExistTagByID(id int) bool {
-	var tag Tag
+	var tag Tag //实例化tag
+
 	db.Select("id").Where("id = ?", id).First(&tag)
 	if tag.ID > 0 {
 		return true
@@ -82,12 +87,14 @@ func ExistTagByID(id int) bool {
 	return false
 }
 
+// DeleteTag 根据id删除表中tag
 func DeleteTag(id int) bool {
 	db.Where("id = ?", id).Delete(&Tag{})
 
 	return true
 }
 
+// EditTag 修改tag
 func EditTag(id int, data interface{}) bool {
 	db.Model(&Tag{}).Where("id = ?", id).Updates(data)
 

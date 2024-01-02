@@ -1093,4 +1093,176 @@ func AddTag(c *gin.Context) {
 ```
 用`Postman`用 `POST `访问`http://127.0.0.1:8000/api/v1/tags?name=1&state=1&created_by=test`，查看`code`是否返回`200`及`blog_tag`表中是否有值，有值则正确。
 
+### 编写 models callbacks
+但是这个时候大家会发现，我明明新增了标签，但`created_on`居然没有值，那做修改标签的时候`modified_on`会不会也存在这个问题？
 
+为了解决这个问题，我们需要打开`models`目录下的`tag.go`文件，修改文件内容（修改包引用和增加 2 个方法）：
+
+```go
+package models
+
+import (
+    "time"
+
+    "github.com/jinzhu/gorm"
+)
+
+...
+
+// BeforeCreate 建立hook钩子函数，在创建之前插入时间值
+func (tag *Tag) BeforeCreate(scope *gorm.Scope) error {
+	//我们在定义的时候createon是int类型，因此我们这里使用unix方法将时间转变为时间戳
+	scope.SetColumn("CreatedOn", time.Now().Unix())
+
+	return nil
+}
+
+// BeforeUpdate 同为hook钩子函数，更新的时候加入修改时间值
+func (tag *Tag) BeforeUpdate(scope *gorm.Scope) error {
+	scope.SetColumn("ModifiedOn", time.Now().Unix())
+
+	return nil
+}
+...
+```
+
+重启服务，再在用`Postman`用 `POST` 访问`http://127.0.0.1:8000/api/v1/tags?name=2&state=1&created_by=test`，发现`created_on`已经有值了！
+
+**这里涉及到gorm的相关方式，更多的可以查看这篇[gormhook相关的文章](https://blog.csdn.net/kingsill/article/details/134607359?spm=1001.2014.3001.5501)**
+
+### 编写其余接口的路由逻辑
+接下来，我们一口气把剩余的两个接口（`EditTag、DeleteTag`）完成吧
+
+打开`routers`目录下 `v1` 版本的`tag.go`文件，修改内容：
+```go
+...
+// EditTag 修改文章标签
+func EditTag(c *gin.Context) {
+	//.param 动态参数查询，并将其确定转换为int
+	id := com.StrTo(c.Param("id")).MustInt()
+
+	//参数查询，查询对应key
+	name := c.Query("name")
+	modifiedBy := c.Query("modified_by")
+
+	//设定验证信息
+	valid := validation.Validation{}
+
+	var state int = -1
+	if arg := c.Query("state"); arg != "" {
+		state = com.StrTo(arg).MustInt()
+		valid.Range(state, 0, 1, "state").Message("状态只允许0或1")
+	}
+
+	valid.Required(id, "id").Message("ID不能为空")
+	valid.Required(modifiedBy, "modified_by").Message("修改人不能为空")
+	valid.MaxSize(modifiedBy, 100, "modified_by").Message("修改人最长为100字符")
+	valid.MaxSize(name, 100, "name").Message("名称最长为100字符")
+
+	code := e.INVALID_PARAMS
+	if !valid.HasErrors() {
+		code = e.SUCCESS
+		if models.ExistTagByID(id) {
+			data := make(map[string]interface{})
+			data["modified_by"] = modifiedBy
+			if name != "" {
+				data["name"] = name
+			}
+			if state != -1 {
+				data["state"] = state
+			}
+
+			models.EditTag(id, data)
+		} else {
+			code = e.ERROR_NOT_EXIST_TAG
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": code,
+		"msg":  e.GetMsg(code),
+		"data": make(map[string]string),
+	})
+}
+
+// DeleteTag 删除文章标签
+func DeleteTag(c *gin.Context) {
+	//动态参数查询
+	id := com.StrTo(c.Param("id")).MustInt()
+
+	//验证信息
+	valid := validation.Validation{}
+	valid.Min(id, 1, "id").Message("ID必须大于0")
+
+	code := e.INVALID_PARAMS
+	if !valid.HasErrors() {
+		code = e.SUCCESS
+		if models.ExistTagByID(id) {
+			models.DeleteTag(id)
+		} else {
+			code = e.ERROR_NOT_EXIST_TAG
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": code,
+		"msg":  e.GetMsg(code),
+		"data": make(map[string]string),
+	})
+}
+
+```
+
+### 编写其余接口的 models 逻辑
+打开`models`下的`tag.go`，修改文件内容：
+
+
+```go
+...
+
+// ExistTagByID 根据id查询表中tag是否存在
+func ExistTagByID(id int) bool {
+	var tag Tag //实例化tag
+
+	db.Select("id").Where("id = ?", id).First(&tag)
+	if tag.ID > 0 {
+		return true
+	}
+
+	return false
+}
+
+// DeleteTag 根据id删除表中tag
+func DeleteTag(id int) bool {
+	db.Where("id = ?", id).Delete(&Tag{})
+
+	return true
+}
+
+// EditTag 修改tag
+func EditTag(id int, data interface{}) bool {
+	db.Model(&Tag{}).Where("id = ?", id).Updates(data)
+
+	return true
+}
+
+...
+
+```
+
+### 验证功能
+重启服务，用` Postman`
+
+- `PUT` 访问 `http://127.0.0.1:8000/api/v1/tags/1?name=edit1&state=0&modified_by=edit1` ，查看 `code` 是否返回 `200`
+- `DELETE` 访问 `http://127.0.0.1:8000/api/v1/tags/1` ，查看 `code` 是否返回 `200`
+至此，`Tag` 的 `API’s` 完成，下一节我们将开始 `Article` 的 `API’s` 编写！
+
+## 完成博客的文章类接口定义和编写
+### 定义接口
+本节编写文章的逻辑，我们定义一下接口吧！
+
+- **获取文章列表**：GET("/articles”)
+- **获取指定文章**：POST("/articles/:id”)
+- **新建文章**：POST("/articles”)
+- **更新指定文章**：PUT("/articles/:id”)
+- **删除指定文章**：DELETE("/articles/:id”)

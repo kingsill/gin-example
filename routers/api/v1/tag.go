@@ -85,10 +85,14 @@ func AddTag(c *gin.Context) {
 
 // EditTag 修改文章标签
 func EditTag(c *gin.Context) {
+	//.param 动态参数查询，并将其确定转换为int
 	id := com.StrTo(c.Param("id")).MustInt()
+
+	//参数查询，查询对应key
 	name := c.Query("name")
 	modifiedBy := c.Query("modified_by")
 
+	//设定验证信息
 	valid := validation.Validation{}
 
 	var state int = -1
@@ -130,8 +134,10 @@ func EditTag(c *gin.Context) {
 
 // DeleteTag 删除文章标签
 func DeleteTag(c *gin.Context) {
+	//动态参数查询
 	id := com.StrTo(c.Param("id")).MustInt()
 
+	//验证信息
 	valid := validation.Validation{}
 	valid.Min(id, 1, "id").Message("ID必须大于0")
 
