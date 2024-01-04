@@ -1266,3 +1266,143 @@ func EditTag(id int, data interface{}) bool {
 - **新建文章**：POST("/articles”)
 - **更新指定文章**：PUT("/articles/:id”)
 - **删除指定文章**：DELETE("/articles/:id”)
+
+### 编写路由空壳
+在`routers`的 `v1` 版本下，新建`article.go`文件，写入内容：
+```go
+package v1
+
+import (
+    "github.com/gin-gonic/gin"
+)
+
+//获取单个文章
+func GetArticle(c *gin.Context) {
+}
+
+//获取多个文章
+func GetArticles(c *gin.Context) {
+}
+
+//新增文章
+func AddArticle(c *gin.Context) {
+}
+
+//修改文章
+func EditArticle(c *gin.Context) {
+}
+
+//删除文章
+func DeleteArticle(c *gin.Context) {
+}
+
+```
+我们打开`routers`下的`router.go`文件，修改文件内容为：
+```go
+package routers
+
+import (
+    "github.com/gin-gonic/gin"
+	
+	"github.com/kingsill/gin-example/pkg/setting"
+	"github.com/kingsill/gin-example/routers/api/v1"
+)
+
+func InitRouter() *gin.Engine {
+    ...
+    apiv1 := r.Group("/api/v1")
+    {
+        ...
+        //获取文章列表
+        apiv1.GET("/articles", v1.GetArticles)
+        //获取指定文章
+        apiv1.GET("/articles/:id", v1.GetArticle)
+        //新建文章
+        apiv1.POST("/articles", v1.AddArticle)
+        //更新指定文章
+        apiv1.PUT("/articles/:id", v1.EditArticle)
+        //删除指定文章
+        apiv1.DELETE("/articles/:id", v1.DeleteArticle)
+    }
+
+    return r
+}
+
+```
+当前目录结构：
+```
+go-gin-example/
+├── conf
+│   └── app.ini
+├── main.go
+├── middleware
+├── models
+│   ├── models.go
+│   └── tag.go
+├── pkg
+│   ├── e
+│   │   ├── code.go
+│   │   └── msg.go
+│   ├── setting
+│   │   └── setting.go
+│   └── util
+│       └── pagination.go
+├── routers
+│   ├── api
+│   │   └── v1
+│   │       ├── article.go
+│   │       └── tag.go
+│   └── router.go
+├── runtime
+
+```
+在基础的路由规则配置结束后，我们开始编写我们的接口吧！
+
+### 编写models逻辑
+创建`models`目录下的`article.go`，写入文件内容：
+```go
+package models
+
+import (
+	"github.com/jinzhu/gorm"
+
+	"time"
+)
+
+// Article 建立对应article表的struct结构体，方便进行信息读写
+type Article struct {
+	Model
+
+	TagID int `json:"tag_id" gorm:"index"`
+	Tag   Tag `json:"tag"`
+
+	Title      string `json:"title"`
+	Desc       string `json:"desc"`
+	Content    string `json:"content"`
+	CreatedBy  string `json:"created_by"`
+	ModifiedBy string `json:"modified_by"`
+	State      int    `json:"state"`
+}
+
+// BeforeCreate 与tag的逻辑相同 为了插入createOn时间戳
+func (article *Article) BeforeCreate(scope *gorm.Scope) error {
+	scope.SetColumn("CreatedOn", time.Now().Unix())
+
+	return nil
+}
+
+// BeforeUpdate 与tag的逻辑相同 是为了更新数据是插入modifiedOn数据
+func (article *Article) BeforeUpdate(scope *gorm.Scope) error {
+	scope.SetColumn("ModifiedOn", time.Now().Unix())
+
+	return nil
+}
+
+```
+我们创建了一个`Article struct {}`，与`Tag`不同的是，`Article`多了几项，如下：
+- `gorm:index`，用于声明这个字段为索引，如果你使用了自动迁移功能则会有所影响，在不使用则无影响
+- `Tag`字段，实际是一个嵌套的`struct`，它利用`TagID`与`Tag`模型相互关联，在执行查询的时候，能够达到`Article、Tag`关联查询的功能
+- `time.Now().Unix()` 返回当前的时间戳
+接下来，请确保已对上一章节的内容通读且了解，由于逻辑偏差不会太远，我们本节直接编写这五个接口
+
+
