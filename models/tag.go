@@ -28,7 +28,7 @@ func GetTags(pageNum int, pageSize int, maps interface{}) (tags []Tag) {
 	return
 }
 
-// GetTagTotal 查询tag总数
+// GetTagTotal 查询tag总数，使用时maps会传递相关参数
 func GetTagTotal(maps interface{}) (count int) {
 	db.Model(&Tag{}).Where(maps).Count(&count)
 
