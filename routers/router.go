@@ -11,9 +11,10 @@ func InitRouter() *gin.Engine {
 	//注册一个新的router
 	r := gin.New()
 
-	//使用logger
+	//使用logger中间件
 	r.Use(gin.Logger())
 
+	// Recovery 中间件会 recover 任何 panic。如果有 panic 的话，会写入 500。
 	r.Use(gin.Recovery())
 
 	//将运行模式放到setting中设置的模式上
