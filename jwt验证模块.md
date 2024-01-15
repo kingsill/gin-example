@@ -161,7 +161,290 @@ func ParseToken(token string) (*Claims, error) {
 [中间件相关知识](https://blog.csdn.net/kingsill/article/details/133808879#t11)
 [自定义中间件](https://gin-gonic.com/zh-cn/docs/examples/custom-middleware/)
 有了jwt工具包，接下来我们要编写要用于Gin的中间件，我们在middleware下新建jwt目录，新建jwt.go文件，写入内容：
+```go
+package jwt
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/kingsill/gin-example/pkg/e"
+	"github.com/kingsill/gin-example/pkg/util"
+)
+
+// 自定义中间件
+func JWT() gin.HandlerFunc {
+	//返回.context函数
+	return func(c *gin.Context) {
+		var code int
+		var data interface{}
+
+		//默认是正确状态
+		code = e.SUCCESS
+
+		//参数查询url中token关键字
+		token := c.Query("token")
+
+		//如果为空，则进行相关提示
+		if token == "" {
+			code = e.INVALID_PARAMS
+		} else { //如果右token，进行token的解析
+			claims, err := util.ParseToken(token)
+			if err != nil { //如果解析出错，相关提示
+				code = e.ERROR_AUTH_CHECK_TOKEN_FAIL
+			} else if time.Now().Unix() > claims.ExpiresAt { //如果解析出来token已过期，则也有相关提示
+				code = e.ERROR_AUTH_CHECK_TOKEN_TIMEOUT
+			}
+		}
+
+		//后续处理，如果之前步骤有错误，进行一下操作
+		if code != e.SUCCESS {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"code": code,
+				"msg":  e.GetMsg(code),
+				"data": data,
+			})
+
+			//放弃后续中间件的执行，即如果有错，后续中间件都不执行
+			c.Abort()
+			return
+		}
+
+		//如果没错，放行	next前为请求中间件，next后为相应中间件
+		c.Next()
+	}
+}
+```
+
+## 如何获取`token`  编写获取`token`的Api
+那么我们如何调用它呢，我们还要获取`Token`呢？
+### models逻辑编写
+在`models`下新建`auth.go`文件，写入内容：
+```go
+package models
+
+// jwt验证的 数据库相关操作
+
+// Auth 用户对应的struct模型
+type Auth struct {
+	ID       int    `gorm:"primary_key" json:"id"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// CheckAuth 根据用户名和密码查询用户是否存在
+func CheckAuth(username, password string) bool {
+	var auth Auth
+	db.Select("id").Where(Auth{Username: username, Password: password}).First(&auth)
+	if auth.ID > 0 {
+		return true
+	}
+
+	return false
+}
+```
+
+}
+### 路由逻辑编写
+在`routers`下的`api`目录新建`auth.go`文件，写入内容：
+```go
+package v1
+
+import (
+	"log"
+	"net/http"
+
+	"github.com/astaxie/beego/validation"
+	"github.com/gin-gonic/gin"
+
+	"github.com/kingsill/gin-example/models"
+	"github.com/kingsill/gin-example/pkg/e"
+	"github.com/kingsill/gin-example/pkg/util"
+)
+
+// 定义我们验证用户所需的信息，同时定义valid验证的预定信息，即一定要有并且最大字符数为50
+type auth struct {
+	Username string `valid:"Required; MaxSize(50)"`
+	Password string `valid:"Required; MaxSize(50)"`
+}
+
+func GetAuth(c *gin.Context) {
+	//参数查询，？=模式，获取用户名和密码
+	username := c.Query("username")
+	password := c.Query("password")
+
+	//通过设立结构体验证的valid验证，即所需并且最大为50个字符
+	valid := validation.Validation{}
+	a := auth{Username: username, Password: password}
+	ok, _ := valid.Valid(&a)
+
+	//建立存储信息的map key类型为string，val类型为任意值
+	data := make(map[string]interface{})
+
+	//设置默认code为参数错误
+	code := e.INVALID_PARAMS
+
+	//通过前序验证，继续通过数据库进行验证
+	if ok {
+		//通过数据库进行验证
+		isExist := models.CheckAuth(username, password)
+
+		//如果通过数据库验证
+		if isExist {
+			//创建token令牌
+			token, err := util.GenerateToken(username, password)
+
+			if err != nil { //如果生成令牌失败
+				code = e.ERROR_AUTH_TOKEN
+			} else { //生成token成功，进行存储
+				data["token"] = token
+				code = e.SUCCESS
+			}
+
+		} else { //没通过数据库验证
+			code = e.ERROR_AUTH
+		}
+
+	} else { //没通过前序验证
+		for _, err := range valid.Errors {
+			log.Println(err.Key, err.Message)
+		}
+	}
+
+	//json相应
+	c.JSON(http.StatusOK, gin.H{
+		"code": code,
+		"msg":  e.GetMsg(code),
+		"data": data,
+	})
+}
+```
+
+### 修改路由逻辑
+我们打开`routers`目录下的`router.go`文件，修改文件内容（新增获取 `token` 的方法）：
+增添一句`	r.GET("/auth", api.GetAuth)`，放在路由组之外
+```go
+func InitRouter() *gin.Engine {
+r := gin.New()
+
+r.Use(gin.Logger())
+
+r.Use(gin.Recovery())
+
+gin.SetMode(setting.RunMode)
+
+r.GET("/auth", api.GetAuth)//------------------------
+
+apiv1 := r.Group("/api/v1")
+{
+...
+}
+
+return r
+}
+```
+
+## 验证token
+获取`token`的` API` 方法就到这里啦，让我们来测试下是否可以正常使用吧！
+
+重启服务后，用`GET`方式访问`http://127.0.0.1:8000/auth?username=test&password=test123456` ，查看返回值是否正确
+```
+{
+    "code": 200,
+    "data": {
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InRlc3QiLCJwYXNzd29yZCI6InRlc3QxMjM0NTYiLCJleHAiOjE3MDUzMzk2MzUsImlzcyI6Imdpbi1ibG9nIn0.4zblfic9MdOvrg4TF9Li8nfw3FSBq3rGgKqnJnDFXYY"
+    },
+    "msg": "ok"
+}
+```
+我们有了`token`的 `API`，也调用成功了
+
+### 将中间件接入`Gin`
+修改路由分组模块语句，`apiv1 := r.Group("/api/v1").Use(jwt.JWT())`，将jwt验证加入全局路由
+```go
+...
+    apiv1 := r.Group("/api/v1")
+apiv1.Use(jwt.JWT())
+{
+...
+}
+...
+```
+当前目录结构
+```
+go-gin-example/
+├── conf
+│   └── app.ini
+├── main.go
+├── middleware
+│   └── jwt
+│       └── jwt.go
+├── models
+│   ├── article.go
+│   ├── auth.go
+│   ├── models.go
+│   └── tag.go
+├── pkg
+│   ├── e
+│   │   ├── code.go
+│   │   └── msg.go
+│   ├── setting
+│   │   └── setting.go
+│   └── util
+│       ├── jwt.go
+│       └── pagination.go
+├── routers
+│   ├── api
+│   │   ├── auth.go
+│   │   └── v1
+│   │       ├── article.go
+│   │       └── tag.go
+│   └── router.go
+├── runtime
+```
+到这里，我们的JWT编写就完成啦！
+
+### 功能验证模块
+
+我们来测试一下，再次访问
+
+- http://127.0.0.1:8000/api/v1/articles
+- http://127.0.0.1:8000/api/v1/articles?token=23131
+正确的反馈应该是
+```
+{
+  "code": 400,
+  "data": null,
+  "msg": "请求参数错误"
+}
+
+{
+  "code": 20001,
+  "data": null,
+  "msg": "Token鉴权失败"
+}
+
+```
+
+我们需要访问`http://127.0.0.1:8000/auth?username=test&password=test123456` ，得到token
 
 
+再用包含`token`的 `URL` 参数去访问我们的应用 `API`，
 
+- 这里的问题即为创建的token还需要自己复制粘贴，不能自动取用等
 
+访问`http://127.0.0.1:8000/api/v1/articles?token=eyJhbGci...` ，检查接口返回值
+
+```
+{
+    "code": 200,
+    "data": {
+        "lists": [],
+        "total": 0
+    },
+    "msg": "ok"
+}
+```
+验证正确，文章列表取决于数据库内容

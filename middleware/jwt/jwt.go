@@ -43,12 +43,12 @@ func JWT() gin.HandlerFunc {
 				"data": data,
 			})
 
-			//放弃后续
+			//放弃后续中间件的执行，即如果有错，后续中间件都不执行
 			c.Abort()
 			return
 		}
 
-		//如果没错，放行
+		//如果没错，放行	next前为请求中间件，next后为相应中间件
 		c.Next()
 	}
 }
