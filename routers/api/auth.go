@@ -1,7 +1,6 @@
 package api
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/astaxie/beego/validation"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/kingsill/gin-example/models"
 	"github.com/kingsill/gin-example/pkg/e"
+	"github.com/kingsill/gin-example/pkg/logging"
 	"github.com/kingsill/gin-example/pkg/util"
 )
 
@@ -57,7 +57,7 @@ func GetAuth(c *gin.Context) {
 
 	} else { //没通过前序验证
 		for _, err := range valid.Errors {
-			log.Println(err.Key, err.Message)
+			logging.Info(err.Key, err.Message)
 		}
 	}
 
