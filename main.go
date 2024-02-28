@@ -2,10 +2,9 @@ package main
 
 import (
 	"fmt"
-	"net/http"
-
 	"github.com/kingsill/gin-example/pkg/setting"
 	"github.com/kingsill/gin-example/routers"
+	"net/http"
 )
 
 func main() {
