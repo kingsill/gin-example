@@ -6,6 +6,8 @@ import (
 	"github.com/kingsill/gin-example/pkg/setting"
 	"github.com/kingsill/gin-example/routers/api"
 	"github.com/kingsill/gin-example/routers/api/v1"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func InitRouter() *gin.Engine {
@@ -20,6 +22,8 @@ func InitRouter() *gin.Engine {
 
 	//将运行模式放到setting中设置的模式上
 	gin.SetMode(setting.RunMode)
+
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	//获取token
 	r.GET("/auth", api.GetAuth)

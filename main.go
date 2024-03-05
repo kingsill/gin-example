@@ -9,6 +9,9 @@ import (
 	"syscall"
 )
 
+// @title gin-example
+// @version 1.0
+
 func main() {
 
 	/*	之前的版本
@@ -30,6 +33,7 @@ func main() {
 
 	//当前版本，建议对比源代码进行理解
 	//进行配置的导入，在setting包中进行设置
+
 	endless.DefaultReadTimeOut = setting.ReadTimeout
 	endless.DefaultWriteTimeOut = setting.WriteTimeout
 	endless.DefaultMaxHeaderBytes = 1 << 20

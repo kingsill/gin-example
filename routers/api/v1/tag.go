@@ -14,7 +14,11 @@ import (
 	"github.com/kingsill/gin-example/pkg/util"
 )
 
-// GetTags 获取多个文章标签
+// @Summary 查询标签
+// @Produce json
+// @Param name query string true "name"
+// @Success 200 {string} json "{"code":200,"data":{},"msg":"ok"}"
+// @Router /api/v1/tags [get]
 func GetTags(c *gin.Context) {
 	//查询参数方法，及url中？name=xxx
 	name := c.Query("name")
@@ -45,7 +49,13 @@ func GetTags(c *gin.Context) {
 	})
 }
 
-// AddTag 新增文章标签
+// @Summary 新增文章标签
+// @Produce  json
+// @Param name query string true "Name"
+// @Param state query int false "State"
+// @Param created_by query int false "CreatedBy"
+// @Success 200 {string} json "{"code":200,"data":{},"msg":"ok"}"
+// @Router /api/v1/tags [post]
 func AddTag(c *gin.Context) {
 
 	//参数查询 url中name
@@ -83,7 +93,14 @@ func AddTag(c *gin.Context) {
 	})
 }
 
-// EditTag 修改文章标签
+// @Summary 修改文章标签
+// @Produce  json
+// @Param id path int true "ID"
+// @Param name query string true "ID"
+// @Param state query int false "State"
+// @Param modified_by query string true "ModifiedBy"
+// @Success 200 {string} json "{"code":200,"data":{},"msg":"ok"}"
+// @Router /api/v1/tags/{id} [put]
 func EditTag(c *gin.Context) {
 	//.param 动态参数查询，并将其确定转换为int
 	id := com.StrTo(c.Param("id")).MustInt()
@@ -132,7 +149,11 @@ func EditTag(c *gin.Context) {
 	})
 }
 
-// DeleteTag 删除文章标签
+// @Summary 删除文章标签
+// @Produce  json
+// @Param name path int true "id"
+// @Success 200 {string} json "{"code":200,"data":{},"msg":"ok"}"
+// @Router /api/v1/tags{id} [delete]
 func DeleteTag(c *gin.Context) {
 	//动态参数查询
 	id := com.StrTo(c.Param("id")).MustInt()
