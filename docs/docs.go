@@ -47,35 +47,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1": {
-            "get": {
-                "summary": "生成用户token",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "username",
-                        "name": "username",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "password",
-                        "name": "password",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{\"code\":200.\"data\":{},\"msg\":\"ok\"}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/tags": {
             "get": {
                 "produces": [
@@ -205,6 +176,35 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/auth": {
+            "get": {
+                "summary": "生成用户token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "username",
+                        "name": "username",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "password",
+                        "name": "password",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200.\"data\":{},\"msg\":\"ok\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
         }
     }
 }`
@@ -212,7 +212,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "",
+	Host:             "localhost:8000",
 	BasePath:         "",
 	Schemes:          []string{},
 	Title:            "gin-example",

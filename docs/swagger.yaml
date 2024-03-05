@@ -1,3 +1,4 @@
+host: localhost:8000
 info:
   contact: {}
   title: gin-example
@@ -24,25 +25,6 @@ paths:
           schema:
             type: string
       summary: 获取文章列表
-  /api/v1:
-    get:
-      parameters:
-      - description: username
-        in: query
-        name: username
-        required: true
-        type: string
-      - description: password
-        in: query
-        name: password
-        required: true
-        type: string
-      responses:
-        "200":
-          description: '{"code":200."data":{},"msg":"ok"}'
-          schema:
-            type: string
-      summary: 生成用户token
   /api/v1/tags:
     get:
       parameters:
@@ -128,4 +110,23 @@ paths:
           schema:
             type: string
       summary: 删除文章标签
+  /auth:
+    get:
+      parameters:
+      - description: username
+        in: query
+        name: username
+        required: true
+        type: string
+      - description: password
+        in: query
+        name: password
+        required: true
+        type: string
+      responses:
+        "200":
+          description: '{"code":200."data":{},"msg":"ok"}'
+          schema:
+            type: string
+      summary: 生成用户token
 swagger: "2.0"

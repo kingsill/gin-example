@@ -5,6 +5,7 @@
         "contact": {},
         "version": "1.0"
     },
+    "host": "localhost:8000",
     "paths": {
         "/api/articles": {
             "get": {
@@ -31,35 +32,6 @@
                 "responses": {
                     "200": {
                         "description": "{\"code\":200,\"data\":{},\"msg\":\"ok\"}",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1": {
-            "get": {
-                "summary": "生成用户token",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "username",
-                        "name": "username",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "password",
-                        "name": "password",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "{\"code\":200.\"data\":{},\"msg\":\"ok\"}",
                         "schema": {
                             "type": "string"
                         }
@@ -190,6 +162,35 @@
                 "responses": {
                     "200": {
                         "description": "{\"code\":200,\"data\":{},\"msg\":\"ok\"}",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth": {
+            "get": {
+                "summary": "生成用户token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "username",
+                        "name": "username",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "password",
+                        "name": "password",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "{\"code\":200.\"data\":{},\"msg\":\"ok\"}",
                         "schema": {
                             "type": "string"
                         }

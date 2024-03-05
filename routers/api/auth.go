@@ -22,7 +22,7 @@ type auth struct {
 // @Param username query string true "username"
 // @Param password query string true "password"
 // @Success 200 {string} json "{"code":200."data":{},"msg":"ok"}"
-// @Router /api/v1 [get]
+// @Router /auth [get]
 func GetAuth(c *gin.Context) {
 	//参数查询，？=模式，获取用户名和密码
 	username := c.Query("username")
