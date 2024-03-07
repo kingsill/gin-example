@@ -1,8 +1,6 @@
 host: localhost:8000
 info:
   contact: {}
-  license:
-    name: MIT
   title: gin-example
   version: "1.0"
 paths:

@@ -41,14 +41,15 @@ Swagger 中需要将相应的注释或注解编写到方法上，再利用生成
     import "github.com/swaggo/gin-swagger" // gin-swagger middleware
     import "github.com/swaggo/files" // swagger embed files
     ```
-2. 在main.go源代码中添加通用的api注释 
+2. router.go源代码中添加通用的api注释 
+这里可以选择`main.go`中进行通用注释，为了方便我们从管理路由的文件进行注释
 这里由于是学习用的项目，我们这里选择简单添加`标题title，版本version，以及主机名称及端号host`
 ```go
 ...
-   // @title gin-example
-   // @version 1.0
-   // @host localhost:8000
-   func main() {
+// @title			gin-example
+// @version		1.0
+// @host			localhost:8000
+func InitRouter() *gin.Engine {
 	   ...
 }
 ...
@@ -192,7 +193,7 @@ func DeleteTag(c *gin.Context) {
 ```
 ## 生成说明文件
 进入到项目的项目根目录中，执行初始化命令
-由于我们的总的通用api注释没有写在`main.go`中，而是在`router.go`中，我们使用`-g`标识符来告知swag
+由于我们的总的通用api注释没有写在`main.go`中，而是在`router.go`中，我们使用`-g`标识符来告知`swag`，如果直接在`main.go`中进行api注释的话可以直接`swag init`
 ```shell
 swag init -g routers/router.go
 ```
@@ -220,4 +221,7 @@ swag init -g routers/router.go
     └── logs
 ```
 ## 验证
-运行并访问`http://127.0.0.1:8000/swagger/index.html` ，查看是否能够正常运行 
+运行并访问`http://127.0.0.1:8000/swagger/index.html` ，查看是否能够正常运行
+
+![图片](img.png)
+之后各种操作都简单便利啦

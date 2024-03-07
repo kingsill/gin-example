@@ -3,9 +3,6 @@
     "info": {
         "title": "gin-example",
         "contact": {},
-        "license": {
-            "name": "MIT"
-        },
         "version": "1.0"
     },
     "host": "localhost:8000",
