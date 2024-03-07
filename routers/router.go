@@ -2,14 +2,18 @@ package routers
 
 import (
 	"github.com/gin-gonic/gin"
+	_ "github.com/kingsill/gin-example/docs"
 	"github.com/kingsill/gin-example/middleware/jwt"
 	"github.com/kingsill/gin-example/pkg/setting"
 	"github.com/kingsill/gin-example/routers/api"
 	"github.com/kingsill/gin-example/routers/api/v1"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
+	"github.com/swaggo/files"
+	"github.com/swaggo/gin-swagger"
 )
 
+// @title			gin-example
+// @version		1.0
+// @host			localhost:8000
 func InitRouter() *gin.Engine {
 	//注册一个新的router
 	r := gin.New()

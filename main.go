@@ -9,9 +9,6 @@ import (
 	"syscall"
 )
 
-// @title gin-example
-// @version 1.0
-// @host localhost:8000
 func main() {
 
 	/*	之前的版本
