@@ -93,6 +93,6 @@ func (article *Article) BeforeCreate(scope *gorm.Scope) error {
 // BeforeUpdate 与tag的逻辑相同 是为了更新数据是插入modifiedOn数据
 func (article *Article) BeforeUpdate(scope *gorm.Scope) error {
 	scope.SetColumn("ModifiedOn", time.Now().Unix())
-
+·
 	return nil
 }
