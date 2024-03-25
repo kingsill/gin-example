@@ -25,12 +25,14 @@ func InitRouter() *gin.Engine {
 	r.Use(gin.Recovery())
 
 	//将运行模式放到setting中设置的模式上
-	gin.SetMode(setting.RunMode)
+	gin.SetMode(setting.ServerSetting.RunMode)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	//获取token
 	r.GET("/auth", api.GetAuth)
+
+	r.POST("/upload", api.UploadImage)
 
 	//路由分组，统一管理，统一增加 前缀。	在分组后通过全局路由.use注册中间件
 	apiv1 := r.Group("/api/v1").Use(jwt.JWT())

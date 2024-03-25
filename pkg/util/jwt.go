@@ -9,7 +9,7 @@ import (
 )
 
 // 加载配置文件中设置的密钥
-var jwtSecret = []byte(setting.JwtSecret)
+var jwtSecret = []byte(setting.AppSetting.JwtSecret)
 
 // Claims 定义claims结构体
 type Claims struct {

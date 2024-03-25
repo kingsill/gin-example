@@ -42,13 +42,15 @@ const (
 	FATAL
 )
 
-// 自定义logger的初始化
-func init() {
-	//获取log文件目录
-	filePath := getLogFileFullPath()
+// Setup 自定义logger的初始化
+func Setup() {
+	var err error
 
 	//得到log文件句柄
-	F = openLogFile(filePath)
+	F, err = openLogFile()
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	//创建一个新的日志记录器
 	logger = log.New(F, DefaultPrefix, log.LstdFlags)
@@ -59,7 +61,7 @@ func Debug(v ...interface{}) {
 	logger.Println(v)
 }
 
-// 这里先设置每条log的前缀部分，首先为log模式，这里为info；然后为具体到某个函数第几行出错；接下来为时间；最后为日志信息
+// Info 这里先设置每条log的前缀部分，首先为log模式，这里为info；然后为具体到某个函数第几行出错；接下来为时间；最后为日志信息
 func Info(v ...interface{}) {
 	setPrefix(INFO)
 	logger.Println(v)

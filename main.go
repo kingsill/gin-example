@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/fvbock/endless"
+	"github.com/kingsill/gin-example/models"
+	"github.com/kingsill/gin-example/pkg/logging"
 	"github.com/kingsill/gin-example/pkg/setting"
 	"github.com/kingsill/gin-example/routers"
 	"log"
@@ -10,6 +12,9 @@ import (
 )
 
 func main() {
+	setting.Setup()
+	models.Setup()
+	logging.Setup()
 
 	/*	之前的版本
 		//将原来创建的默认router和建立对应的handler绑定
@@ -31,10 +36,10 @@ func main() {
 	//当前版本，建议对比源代码进行理解
 	//进行配置的导入，在setting包中进行设置
 
-	endless.DefaultReadTimeOut = setting.ReadTimeout
-	endless.DefaultWriteTimeOut = setting.WriteTimeout
+	endless.DefaultReadTimeOut = setting.ServerSetting.ReadTimeout
+	endless.DefaultWriteTimeOut = setting.ServerSetting.WriteTimeout
 	endless.DefaultMaxHeaderBytes = 1 << 20
-	endPoint := fmt.Sprintf(":%d", setting.HTTPPort)
+	endPoint := fmt.Sprintf(":%d", setting.ServerSetting.HttpPort)
 
 	//newsever返回一个初始化的endlessServer对象
 	server := endless.NewServer(endPoint, routers.InitRouter())

@@ -2,53 +2,45 @@ package logging
 
 import (
 	"fmt"
-	"log"
+	"github.com/kingsill/gin-example/pkg/file"
+	"github.com/kingsill/gin-example/pkg/setting"
 	"os"
 	"time"
 )
 
-// 适用枚举，将所有固定的量提前列出在这里，方便后期维护	我们这里将原来的var修改为const
-const (
-	LogSavePath = "runtime/logs/"
-	LogSaveName = "log"
-	LogFileExt  = "log"
-	TimeFormat  = "20060102"
-)
-
 // 返回log文件的前缀路径，算是一个具有仪式感的函数
 func getLogFilePath() string {
-	return fmt.Sprintf("%s", LogSavePath)
+	return fmt.Sprintf("%s", setting.AppSetting.LogSavePath)
 }
 
-// 获得log文件的整体路径，以当前日期作为.log文件的名字
+// 获得log文件的整体路径，以当前日期作为.log文件的名字 runtime/log20010212.log
 func getLogFileFullPath() string {
 	prefixPath := getLogFilePath()
-	suffixPath := fmt.Sprintf("%s%s.%s", LogSaveName, time.Now().Format(TimeFormat), LogFileExt)
+	suffixPath := fmt.Sprintf("%s%s.%s",
+		setting.AppSetting.LogSaveName,
+		time.Now().Format(setting.AppSetting.TimeFormat),
+		setting.AppSetting.LogFileExt,
+	)
 
 	return fmt.Sprintf("%s%s", prefixPath, suffixPath)
 }
 
 // 打开日志文件，返回写入的句柄handle
-func openLogFile(filePath string) *os.File {
-	//根据文件目录是否存在进行判断
-	_, err := os.Stat(filePath)
-	switch {
-	//目录不存在
-	case os.IsNotExist(err):
-		mkDir()
+func openLogFile() (*os.File, error) {
 
-	//权限不够
-	case os.IsPermission(err):
-		log.Fatalf("Permission :%v", err)
-	}
+	//获取文件整体路径
+	fileName := getLogFileFullPath()
+
+	//创建目录
+	mkDir()
 
 	//如果.log文件不存在，这里会创建一个
-	handle, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	handle, err := file.Open(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Fatalf("Fail to OpenFile :%v", err)
+		return nil, fmt.Errorf("fail to open:%s\n", fileName)
 	}
 
-	return handle
+	return handle, nil
 }
 
 // 创建log目录
@@ -56,8 +48,14 @@ func mkDir() {
 	//获得当前目录 dir: /home/wang2/gin-example
 	dir, _ := os.Getwd()
 
-	//适用MKdirAll会直接创建所有依赖的父目录，减少报错的可能性
-	err := os.MkdirAll(dir+"/"+getLogFilePath(), os.ModePerm)
+	//检查目录访问权限
+	perm := file.CheckPermission(getLogFilePath())
+	if perm == true {
+		panic("Permission denied")
+	}
+
+	//如果目录不存在，创建目录
+	err := file.IsNotExistMkDir(dir + "/" + getLogFilePath())
 	if err != nil {
 		panic(err)
 	}

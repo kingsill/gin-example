@@ -38,7 +38,7 @@ func GetTags(c *gin.Context) {
 
 	code := e.SUCCESS //使用之前约定的错误码
 
-	data["lists"] = models.GetTags(util.GetPage(c), setting.PageSize, maps)
+	data["lists"] = models.GetTags(util.GetPage(c), setting.AppSetting.PageSize, maps)
 	data["total"] = models.GetTagTotal(maps)
 
 	//gin.h是一种简便的返回json的方式
