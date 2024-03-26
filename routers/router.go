@@ -5,10 +5,12 @@ import (
 	_ "github.com/kingsill/gin-example/docs"
 	"github.com/kingsill/gin-example/middleware/jwt"
 	"github.com/kingsill/gin-example/pkg/setting"
+	"github.com/kingsill/gin-example/pkg/upload"
 	"github.com/kingsill/gin-example/routers/api"
 	"github.com/kingsill/gin-example/routers/api/v1"
 	"github.com/swaggo/files"
 	"github.com/swaggo/gin-swagger"
+	"net/http"
 )
 
 // @title			gin-example
@@ -32,7 +34,11 @@ func InitRouter() *gin.Engine {
 	//获取token
 	r.GET("/auth", api.GetAuth)
 
+	//图片上传接口
 	r.POST("/upload", api.UploadImage)
+
+	//网页 请求我们指定目录内的内容
+	r.StaticFS("/upload/images", http.Dir(upload.GetImageFullPath()))
 
 	//路由分组，统一管理，统一增加 前缀。	在分组后通过全局路由.use注册中间件
 	apiv1 := r.Group("/api/v1").Use(jwt.JWT())
